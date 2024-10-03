@@ -1,0 +1,56 @@
+version: "3.4"
+services:
+  broker:
+    image: docker.io/library/redis:7
+    restart: unless-stopped
+    networks:
+      - paperless
+    volumes:
+      - /m2/AppData/paperless-ngx/redisdata:/data
+
+  db:
+    image: docker.io/library/postgres:15
+    networks:
+      - paperless
+    restart: unless-stopped
+    volumes:
+      - /m2/AppData/paperless-ngx/pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+    networks:
+      - paperless
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-S", "--max-time", "2", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - /m2/AppData/paperless-ngx/data:/usr/src/paperless/data
+      - /m2/AppData/paperless-ngx/media:/usr/src/paperless/media
+      - /m2/AppData/paperless-ngx/export:/usr/src/paperless/export
+      - /m2/AppData/paperless-ngx/consume:/usr/src/paperless/consume
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBHOST: db
+      USERMAP_UID: 1000
+      USERMAP_GID: 1000
+      PAPERLESS_OCR_LANGUAGE: deu
+      PAPERLESS_TIME_ZONE: Europe/Berlin
+      PAPERLESS_ADMIN_USER: admin@localhost.de
+      PAPERLESS_ADMIN_MAIL: admin@localhost.de
+      PAPERLESS_ADMIN_PASSWORD: password
+      PAPERLESS_SECRET_KEY: SecretKey
+
+networks:
+  paperless:
